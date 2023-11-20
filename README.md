@@ -10,4 +10,4 @@ MAS2011-project
   
   <img src="playingdemo.png" width="300px" height="px"></img>
 
-Code and playing image is demo version. I will upload the completed code and playing image soon.
+## Code and playing image is demo version. I will upload the completed code and playing image soon.
