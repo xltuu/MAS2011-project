@@ -208,7 +208,7 @@ def gameScreen():
             if item_name == 'banana':
                 banana_sound.play()
                 for objcar in objcars:
-                    objcar.speedy-=1
+                    objcar.speedy-=17
             elif item_name == 'star':
                 star_sound.play()
                 if(player.shield>=100):
