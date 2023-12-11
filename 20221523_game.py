@@ -43,12 +43,18 @@ for img in objcar_list:
     objcar_images.append(pygame.image.load(path.join(img_dir, img)).convert())
 
 item_images=[]
-item_list=['star.svg', 'banana.png', 'present.png']
+item_list=['star.svg', 'banana.png', 'present.png', 'bell.png']
 for img in item_list:
     item_images.append(pygame.image.load(path.join(img_dir, img)).convert())
 
-pygame.mixer.music.load(path.join(snd_dir, 'christmas.mp3'))
+star_sound=pygame.mixer.Sound(path.join(snd_dir, 'twinkle.mp3'))
+banana_sound=pygame.mixer.Sound(path.join(snd_dir, 'banana.wav'))
+present_sound=pygame.mixer.Sound(path.join(snd_dir, 'tada.mp3'))
+bell_sound=pygame.mixer.Sound(path.join(snd_dir, 'bell.flac'))
+ending_sound=pygame.mixer.Sound(path.join(snd_dir, 'hohoho.mp3'))
+pygame.mixer.music.load(path.join(snd_dir, 'JingleBells.mp3'))
 pygame.mixer.music.set_volume(0.4)
+pygame.mixer.music.play(loops=-1)
 
 # txt 읽어서 가장 높은 점수 반환
 def read_score():
@@ -78,7 +84,7 @@ def display_score():
 
     font = pygame.font.Font('Giants-Inline.otf', 74)
     score = read_score()
-    text = font.render(f"Score: {score}", True, WHITE)
+    text = font.render(f"High Score: {score}", True, WHITE)
     screen.blit(text, (WIDTH / 2 - text.get_width() / 2, HEIGHT / 2 - text.get_height() / 2))
     pygame.display.flip()
     pygame.time.wait(2000)  # 2 seconds delay
@@ -107,8 +113,6 @@ def draw_shield_bar(surf, x, y, pct):
 # Main loop
 def main():
     global start_button_clicked,score, score_button_clicked,game_over  # if you still need this global variable
-
-    pygame.mixer.music.play(loops=-1)
 
     running = True
     game_over=True
@@ -140,6 +144,9 @@ def main():
 
             if not start_button_clicked:
                 if end_button.is_clicked():
+                    pygame.mixer.music.stop()
+                    ending_sound.play()
+                    pygame.time.wait(5000)  # 5초 대기
                     running = False
                     sys.exit()
                 else:
@@ -199,9 +206,11 @@ def gameScreen():
         for item in item_hits:
             item_name = item.get_item_name()
             if item_name == 'banana':
+                banana_sound.play()
                 for objcar in objcars:
                     objcar.speedy-=1
             elif item_name == 'star':
+                star_sound.play()
                 if(player.shield>=100):
                     continue
                 else:
@@ -209,16 +218,19 @@ def gameScreen():
                     if(player.shield>=100):
                         player.shield=100
             elif item_name=='present':
+                present_sound.play()
                 if(player.shield>=100):
                     continue
                 else:
                     player.shield += 20
                     if(player.shield>=100):
                         player.shield=100
+            elif item_name=='bell':
+                bell_sound.play()
+                score+=50
 
         if player.shield <=0:
             game_exit=True
-            game_over=True
             overscreen()
             return
 
@@ -252,8 +264,8 @@ def overscreen():
     font = pygame.font.Font('Giants-Inline.otf', 74)
     text = font.render("Game Over", True, WHITE)
     score_text = font.render(f"Score: {int(score)}", True, WHITE)
-    screen.blit(text, (WIDTH / 2 - text.get_width() / 2, HEIGHT / 2 - text.get_height() / 2))
-    screen.blit(score_text, (WIDTH / 2 - score_text.get_width() / 2, HEIGHT / 2 - score_text.get_height() / 2+50))
+    screen.blit(text, (WIDTH / 2 - text.get_width() / 2, HEIGHT / 2 - text.get_height() / 2-5))
+    screen.blit(score_text, (WIDTH / 2 - score_text.get_width() / 2, HEIGHT / 2 - score_text.get_height() / 2+70))
     pygame.display.flip()
 
     write_score(score)
@@ -261,12 +273,23 @@ def overscreen():
     # 잠시 대기한 뒤 프로그램 종료
     pygame.time.wait(2000)  # 2초 대기
 
-    # 버튼 클릭 초기화
+    # 버튼 클릭, 점수 초기화
     player.shield=100
     game_over=True
     start_button_clicked=False
     start_button.clicked=False
     score=0
+
+    #player, objcar 위치 초기화
+    player.rect.centerx = WIDTH // 2  # 화면 가로 중앙
+    player.rect.centery = HEIGHT // 2  # 화면 세로 중앙
+    i=0
+    for objcar in objcars:
+        objcar.rect = objcar.image.get_rect()
+        objcar.rect.x += 385*i + 187
+        objcar.rect.y += 450
+        i+=1
+
     main()
 
 # 아이템 클래스
@@ -377,12 +400,6 @@ class Player(pygame.sprite.Sprite):
         elif self.speedy < 0:
             self.speedy += 0.1  # 위로 감속
 
-        # 속도가 0에 도달하면 정지
-        if abs(self.speedx) < 1:
-            self.speedx = 0
-        if abs(self.speedy) < 1:
-            self.speedy = 0
-
         # 속도 업데이트
         self.speedx += self.acceleration
         self.speedy += self.acceleration_y
@@ -408,15 +425,7 @@ class Player(pygame.sprite.Sprite):
                 elif self.rect.left < objcar.rect.right and self.rect.centerx > objcar.rect.centerx:
                     self.rect.left = objcar.rect.right
 
-                # Player가 objectCar의 위에 있는 경우
-                elif self.rect.bottom > objcar.rect.top and self.rect.centery < objcar.rect.centery:
-                    self.rect.bottom = objcar.rect.top
-
-                # Player가 objectCar의 아래에 있는 경우
-                elif self.rect.top < objcar.rect.bottom and self.rect.centery > objcar.rect.centery:
-                    self.rect.top = objcar.rect.bottom
-
-                 # 반대 방향으로 속도 설정
+                # 반대 방향으로 속도 설정
                 self.speedx = -self.speedx
                 self.speedy = -self.speedy
                 objcar.speedx = -objcar.speedx
@@ -425,6 +434,7 @@ class Player(pygame.sprite.Sprite):
                 # 가속도 반전
                 self.acceleration = -self.acceleration
                 objcar.acceleration = -objcar.acceleration
+
 
         self.rect.x += self.speedx
         self.rect.y += self.speedy
@@ -445,26 +455,6 @@ class Player(pygame.sprite.Sprite):
         elif self.downclick==True:
             return -13
         return 5
-    
-    def check_player_position(player, objcars):
-        for objcar in objcars:
-            # Player가 objectCar 영역에 들어가는지 확인
-            if player.rect.colliderect(objcar.rect):
-                # Player가 objectCar보다 위에 있을 경우
-                if player.rect.bottom > objcar.rect.top:
-                    player.rect.bottom = objcar.rect.top
-
-                # Player가 objectCar보다 아래에 있을 경우
-                elif player.rect.top < objcar.rect.bottom:
-                    player.rect.top = objcar.rect.bottom
-
-                # Player가 objectCar보다 오른쪽에 있을 경우
-                if player.rect.left < objcar.rect.right:
-                    player.rect.left = objcar.rect.right
-
-                # Player가 objectCar보다 왼쪽에 있을 경우
-                elif player.rect.right > objcar.rect.left:
-                    player.rect.right = objcar.rect.left
 
 # objcar 클래스
 class objectCar(pygame.sprite.Sprite):
@@ -503,7 +493,7 @@ class objectCar(pygame.sprite.Sprite):
             self.speedy=2
         if self.rect.top < 0:
             self.rect.bottom = HEIGHT
-            self.rect.x=random.randint(0, WIDTH)
+            self.rect.x=random.randint(50, WIDTH-50)
 
         for other in objcars:
             if other != self and self.rect.colliderect(other.rect):
@@ -520,22 +510,40 @@ class objectCar(pygame.sprite.Sprite):
                 other.speedx = -other.speedx
                 other.speedy = -other.speedy
 
+
+        if pygame.sprite.collide_rect(self, player):
+                # self.shield-=1
+                # Player가 objectCar의 왼쪽에 있는 경우
+                if self.rect.right > player.rect.left and self.rect.centerx < player.rect.centerx:
+                    self.rect.right = player.rect.left
+
+                # Player가 objectCar의 오른쪽에 있는 경우
+                elif self.rect.left < player.rect.right and self.rect.centerx > player.rect.centerx:
+                    self.rect.left = player.rect.right
+
+                # 반대 방향으로 속도 설정
+                self.speedx = -self.speedx
+                self.speedy = -self.speedy
+
+                # 가속도 반전
+                self.acceleration = -self.acceleration
+
         # 속도 감소 로직
         if self.speedx > 0:
             self.speedx -= 0.1  # 오른쪽으로 감속
         elif self.speedx < 0:
             self.speedx += 0.1  # 왼쪽으로 감속
 
+        # 속도가 0에 도달하면 정지
+        if abs(self.speedx) < 1:
+            self.speedx = random.randint(-2, 2)
+        if abs(self.speedy) < 1:
+            self.speedy = 2
+
         if self.speedy > 0:
             self.speedy -= 0.1  # 아래로 감속
         elif self.speedy < 0:
             self.speedy += 0.1  # 위로 감속
-
-        # 속도가 0에 도달하면 정지
-        if abs(self.speedx) < 1:
-            self.speedx = 0
-        if abs(self.speedy) < 1:
-            self.speedy = 2
 
         # 위치 업데이트
         self.rect.x += self.speedx
