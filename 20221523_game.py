@@ -7,6 +7,8 @@ import sys
 
 pygame.init()
 
+# 변수들 설정
+
 WIDTH = 840
 HEIGHT = 650
 FPS = 40
@@ -18,6 +20,8 @@ WHITE = (255, 255, 255)
 BLACK = (0, 0, 0)
 
 img_dir = path.join(path.dirname(__file__), 'img')
+snd_dir = path.join(path.dirname(__file__), 'snd')
+
 start_button_clicked = False
 score_button_clicked = False
 game_over=True
@@ -39,29 +43,40 @@ for img in objcar_list:
     objcar_images.append(pygame.image.load(path.join(img_dir, img)).convert())
 
 item_images=[]
-item_list=['star.svg', 'banana.png']
+item_list=['star.svg', 'banana.png', 'present.png']
 for img in item_list:
     item_images.append(pygame.image.load(path.join(img_dir, img)).convert())
 
-# Function to read the score from the memo pad file
+pygame.mixer.music.load(path.join(snd_dir, 'christmas.mp3'))
+pygame.mixer.music.set_volume(0.4)
+
+# txt 읽어서 가장 높은 점수 반환
 def read_score():
     score_filename = "score.txt"  # You can adjust the filename as needed
+    highest_score=0
     if os.path.exists(score_filename):
         with open(score_filename, "r") as file:
-            score = file.read()
-            return int(score)
-    return 0  # Return 0 if the file doesn't exist or there's an issue reading the score
+            scores = file.readlines()  # 모든 줄을 읽어 리스트로 저장
+            for score in scores:
+                try:
+                    score_value = int(score.strip())  # 줄바꿈 문자 제거 후 정수로 변환
+                    if score_value > highest_score:
+                        highest_score = score_value
+                except ValueError:
+                    pass  # 숫자로 변환할 수 없는 경우 무시
+    return highest_score
 
 def write_score(score):
     score_filename = "score.txt"
-    with open(score_filename, "w") as file:
-        file.write(str(score))
+    intscore=int(round(score,2))
+    with open(score_filename, "a") as file:
+        file.write(str(intscore)+"\n")
 
 # Function to display the score on the screen
 def display_score():
     global score_button_clicked
 
-    font = pygame.font.Font(None, 74)
+    font = pygame.font.Font('Giants-Inline.otf', 74)
     score = read_score()
     text = font.render(f"Score: {score}", True, WHITE)
     screen.blit(text, (WIDTH / 2 - text.get_width() / 2, HEIGHT / 2 - text.get_height() / 2))
@@ -73,7 +88,7 @@ def display_score():
     main()  # Go back to the main menu after displaying the score
 
 
-# 방해물 객체 4개 생성
+# 방해물 객체 2개 생성
 def newobjcar(i):
     oc = objectCar(i)
     objcars.add(oc)
@@ -92,6 +107,8 @@ def draw_shield_bar(surf, x, y, pct):
 # Main loop
 def main():
     global start_button_clicked,score, score_button_clicked,game_over  # if you still need this global variable
+
+    pygame.mixer.music.play(loops=-1)
 
     running = True
     game_over=True
@@ -114,9 +131,9 @@ def main():
                 display_score()
             else: # 버튼이 아무것도 클릭되지 않았을 때
                 # Display "Car Racing Game" in the center of the screen
-                font = pygame.font.Font(None, 74)
+                font = pygame.font.Font('Giants-Inline.otf', 74)
                 text = font.render("Car Racing Game", True, WHITE)
-                screen.blit(text, (WIDTH / 2 - text.get_width() / 2, HEIGHT / 2 - text.get_height() / 2))
+                screen.blit(text, (WIDTH / 2 - text.get_width() / 2, HEIGHT / 2 - text.get_height() / 2 ))
 
                 start_button.draw((196, 183, 255), "START")
                 score_button.draw((255, 255, 0), "SCORE")
@@ -141,7 +158,7 @@ def gameScreen():
     xb1 = 0
     yb1 = -background_rect.height
 
-    item_respawn_time = 5  # item이 제거된 후 재생성까지의 시간 (초)
+    item_respawn_time = random.randint(1, 7)  # item이 제거된 후 재생성까지의 시간 (초)
     item_respawn_timer = 0
 
     game_exit = False
@@ -151,14 +168,23 @@ def gameScreen():
             if event.type == pygame.QUIT:
                 pygame.quit()
 
+        score += 0.1  # 예시로, 매 프레임마다 스코어를 1씩 증가시킵니다.
+
         #화면 속도
         screenv=player.keyclick()
 
         # 배경 화면 이동
         yb1 += screenv
         yb += screenv
-        screen.blit(background, (xb, yb))
-        screen.blit(background, (xb1, yb1))
+        screen.blit(background, (xb, yb+100))
+        screen.blit(background, (xb1, yb1+100))
+        # 화면에 스코어 표시
+        font = pygame.font.Font('Giants-Inline.otf', 36)  # 폰트와 크기 설정
+        score_text = font.render(f"Score: {int(score)}", True, WHITE)  # 스코어 텍스트 렌더링
+        score_rect = score_text.get_rect()
+        score_rect.topright = (WIDTH - 10, 10)  # 화면 오른쪽 상단에 위치 설정
+        screen.blit(score_text, score_rect)  # 스코어 화면에 그리기
+
         if yb > background_rect.height:
             yb = -background_rect.height
 
@@ -174,18 +200,25 @@ def gameScreen():
             item_name = item.get_item_name()
             if item_name == 'banana':
                 for objcar in objcars:
-                    objcar.rect.y-=10
+                    objcar.speedy-=1
             elif item_name == 'star':
                 if(player.shield>=100):
                     continue
                 else:
                     player.shield += 10
+                    if(player.shield>=100):
+                        player.shield=100
+            elif item_name=='present':
+                if(player.shield>=100):
+                    continue
+                else:
+                    player.shield += 20
+                    if(player.shield>=100):
+                        player.shield=100
 
         if player.shield <=0:
             game_exit=True
-            elapsed_time=(pygame.time.get_ticks())//1000  # 경과 시간(초)
-            score=elapsed_time*10
-            # game_over=True
+            game_over=True
             overscreen()
             return
 
@@ -210,13 +243,15 @@ def gameScreen():
             items.add(Item(random.choice(item_list)))
             item_respawn_timer = 0
 
+#게임 종료된 후 화면
 def overscreen():
     global score,game_over, start_button_clicked
+
     # 화면을 지우고 게임 오버 텍스트를 표시하는 등의 작업을 수행
     screen.fill(BLACK)
-    font = pygame.font.Font(None, 74)
+    font = pygame.font.Font('Giants-Inline.otf', 74)
     text = font.render("Game Over", True, WHITE)
-    score_text = font.render(f"Score: {score}", True, WHITE)
+    score_text = font.render(f"Score: {int(score)}", True, WHITE)
     screen.blit(text, (WIDTH / 2 - text.get_width() / 2, HEIGHT / 2 - text.get_height() / 2))
     screen.blit(score_text, (WIDTH / 2 - score_text.get_width() / 2, HEIGHT / 2 - score_text.get_height() / 2+50))
     pygame.display.flip()
@@ -231,6 +266,7 @@ def overscreen():
     game_over=True
     start_button_clicked=False
     start_button.clicked=False
+    score=0
     main()
 
 # 아이템 클래스
@@ -243,13 +279,13 @@ class Item(pygame.sprite.Sprite):
         self.rect = self.image.get_rect()
         self.item_name = path.splitext(path.basename(image_filename))[0]
 
-        # self.rect.centerx = WIDTH // 2  # 화면 가로 중앙
+        self.rect.x=random.randint(50, WIDTH-60)
 
     def update(self):
         self.rect.y+=5
         if self.rect.y > HEIGHT:
             self.rect.y = -HEIGHT
-            self.rect.x = WIDTH/2
+            self.rect.x = random.randint(50, WIDTH-50)
 
 
     def draw(self, screen):
@@ -264,13 +300,20 @@ class Item(pygame.sprite.Sprite):
 
 # 버튼 클래스
 class Button():
-    def __init__(self, x, y, w, h):
+    def __init__(self, x, y, w, h, r):
         self.rect = pygame.Rect(x, y, w, h)
+        self.radius=r
         self.clicked = False  # Track the button state
 
     def draw(self, color, text):
-        pygame.draw.rect(screen, color, self.rect)
-        font = pygame.font.Font(None, 36)
+        # 둥근 모서리 그리기
+        pygame.draw.rect(screen, color, (self.rect.x + self.radius, self.rect.y, self.rect.width - 2*self.radius, self.rect.height))
+        pygame.draw.rect(screen, color, (self.rect.x, self.rect.y + self.radius, self.rect.width, self.rect.height - 2*self.radius))
+        pygame.draw.circle(screen, color, (self.rect.left + self.radius, self.rect.top + self.radius), self.radius)
+        pygame.draw.circle(screen, color, (self.rect.right - self.radius, self.rect.top + self.radius), self.radius)
+        pygame.draw.circle(screen, color, (self.rect.left + self.radius, self.rect.bottom - self.radius), self.radius)
+        pygame.draw.circle(screen, color, (self.rect.right - self.radius, self.rect.bottom - self.radius), self.radius)
+        font = pygame.font.Font('Giants-Inline.otf', 36)
         text_surface = font.render(text, True, BLACK)
         text_rect = text_surface.get_rect(center=self.rect.center)
         screen.blit(text_surface, text_rect)
@@ -306,7 +349,6 @@ class Player(pygame.sprite.Sprite):
         self.acceleration_y=0
 
     def update(self):
-        # self.speedx = 0
         self.speedx += self.acceleration
         self.speedy += self.acceleration
 
@@ -323,35 +365,75 @@ class Player(pygame.sprite.Sprite):
             self.speedx = 5
         else:
             self.speedy = 0
-        # self.rect.y += self.speedy
-        # self.rect.x += self.speedx
 
-         # 가속도의 부호를 속도의 방향에 따라 조정
+        # 속도 감소 로직
         if self.speedx > 0:
-            self.acceleration = -1  # 오른쪽으로 이동 시 감속
+            self.speedx -= 0.1  # 오른쪽으로 감속
         elif self.speedx < 0:
-            self.acceleration = 1   # 왼쪽으로 이동 시 감속
+            self.speedx += 0.1  # 왼쪽으로 감속
+
+        if self.speedy > 0:
+            self.speedy -= 0.1  # 아래로 감속
+        elif self.speedy < 0:
+            self.speedy += 0.1  # 위로 감속
+
+        # 속도가 0에 도달하면 정지
+        if abs(self.speedx) < 1:
+            self.speedx = 0
+        if abs(self.speedy) < 1:
+            self.speedy = 0
 
         # 속도 업데이트
         self.speedx += self.acceleration
-
-        # 좌표 업데이트
-        self.rect.x += self.speedx
-
-        # 속도가 0에 가까워지면 멈추도록 설정
-        if abs(self.speedx) < 2: self.speedx = 0
-
-        # Y축에 대해서도 동일하게 적용
-        if self.speedy > 0:
-            self.acceleration_y = -1
-        elif self.speedy < 0:
-            self.acceleration_y = 1
-
         self.speedy += self.acceleration_y
+
+        # 속도가 충분히 낮아지면 완전히 멈춤
+        if abs(self.speedx) < 2:
+            self.speedx = 0
+            self.acceleration = 0  # 가속도도 0으로 설정
+
+        if abs(self.speedy) < 2:
+            self.speedy = 0
+            self.acceleration_y = 0  # Y축 가속도도 0으로 설정
+
+
+        for objcar in objcars:
+            if pygame.sprite.collide_rect(self, objcar):
+                self.shield-=1
+                # Player가 objectCar의 왼쪽에 있는 경우
+                if self.rect.right > objcar.rect.left and self.rect.centerx < objcar.rect.centerx:
+                    self.rect.right = objcar.rect.left
+
+                # Player가 objectCar의 오른쪽에 있는 경우
+                elif self.rect.left < objcar.rect.right and self.rect.centerx > objcar.rect.centerx:
+                    self.rect.left = objcar.rect.right
+
+                # Player가 objectCar의 위에 있는 경우
+                elif self.rect.bottom > objcar.rect.top and self.rect.centery < objcar.rect.centery:
+                    self.rect.bottom = objcar.rect.top
+
+                # Player가 objectCar의 아래에 있는 경우
+                elif self.rect.top < objcar.rect.bottom and self.rect.centery > objcar.rect.centery:
+                    self.rect.top = objcar.rect.bottom
+
+                 # 반대 방향으로 속도 설정
+                self.speedx = -self.speedx
+                self.speedy = -self.speedy
+                objcar.speedx = -objcar.speedx
+                objcar.speedy = -objcar.speedy
+
+                # 가속도 반전
+                self.acceleration = -self.acceleration
+                objcar.acceleration = -objcar.acceleration
+
+        self.rect.x += self.speedx
         self.rect.y += self.speedy
 
-        if abs(self.speedy) < 2: self.speedy = 0
-            
+        # 화면 경계 처리
+        if self.rect.right > WIDTH:
+            self.rect.right = WIDTH
+        if self.rect.left < 0:
+            self.rect.left = 0
         if self.rect.bottom > HEIGHT:
             self.rect.bottom = HEIGHT
         if self.rect.top < 0:
@@ -363,6 +445,26 @@ class Player(pygame.sprite.Sprite):
         elif self.downclick==True:
             return -13
         return 5
+    
+    def check_player_position(player, objcars):
+        for objcar in objcars:
+            # Player가 objectCar 영역에 들어가는지 확인
+            if player.rect.colliderect(objcar.rect):
+                # Player가 objectCar보다 위에 있을 경우
+                if player.rect.bottom > objcar.rect.top:
+                    player.rect.bottom = objcar.rect.top
+
+                # Player가 objectCar보다 아래에 있을 경우
+                elif player.rect.top < objcar.rect.bottom:
+                    player.rect.top = objcar.rect.bottom
+
+                # Player가 objectCar보다 오른쪽에 있을 경우
+                if player.rect.left < objcar.rect.right:
+                    player.rect.left = objcar.rect.right
+
+                # Player가 objectCar보다 왼쪽에 있을 경우
+                elif player.rect.right > objcar.rect.left:
+                    player.rect.right = objcar.rect.left
 
 # objcar 클래스
 class objectCar(pygame.sprite.Sprite):
@@ -382,39 +484,62 @@ class objectCar(pygame.sprite.Sprite):
         self.rect.x += 385*self.image_index + 187
         self.rect.y += 450
 
-    def update(self):
-        # objectCar가 player를 따라가도록 설정
-        if player.speedy<0:
-            self.rect.x+=random.randint(-10, 10)
-            self.rect.y+=player.speedy*1.5
-        else:
-            self.rect.y-=player.speedy
+        self.speedx=random.randint(-10, 10)
+        self.speedy=2
+        self.acceleration=0
 
+    def update(self):
+
+        self.rect.x += self.speedx
+        self.rect.y -= self.speedy
+        
         # 화면 밖으로 나가지 않도록 제한
-        # if self.rect.right > WIDTH:
-        #     self.rect.right = WIDTH
+        if self.rect.right > WIDTH:
+            self.speedx=-2
         if self.rect.left < 0:
-            self.rect.left = 0
+            self.speedx+=2
         if self.rect.bottom > HEIGHT:
             self.rect.bottom = HEIGHT
+            self.speedy=2
         if self.rect.top < 0:
-            self.rect.top = HEIGHT
+            self.rect.bottom = HEIGHT
+            self.rect.x=random.randint(0, WIDTH)
 
-        #player와 충돌 검사
-        if pygame.sprite.collide_mask(self,player):
-            player.shield-=20
-            self.bounce_effect()
+        for other in objcars:
+            if other != self and self.rect.colliderect(other.rect):
+                # 충돌 시 반대 방향으로 속도 설정
+                if self.rect.x < other.rect.x:  # self가 other보다 왼쪽에 있는 경우
+                    self.rect.x -= 2  # self를 더 왼쪽으로 이동
+                    other.rect.x += 2  # other를 오른쪽으로 이동
+                else:  # self가 other보다 오른쪽에 있는 경우
+                    self.rect.x += 2  # self를 오른쪽으로 이동
+                    other.rect.x -= 2  # other를 왼쪽으로 이동
 
-    def bounce_effect(self):
-        player.speedx = 10 if self.rect.centerx < player.rect.centerx else -10
-        player.speedy = 10 if self.rect.centery < player.rect.centery else -10
+                self.speedx = -self.speedx
+                self.speedy = -self.speedy
+                other.speedx = -other.speedx
+                other.speedy = -other.speedy
 
-        self.speedx = -player.speedx
-        self.speedy = -player.speedy
+        # 속도 감소 로직
+        if self.speedx > 0:
+            self.speedx -= 0.1  # 오른쪽으로 감속
+        elif self.speedx < 0:
+            self.speedx += 0.1  # 왼쪽으로 감속
 
-        # 가속도 (또는 감속도) 설정
-        player.acceleration = 0.1  # 예시 값, 실제 게임에 맞게 조정 필요
-        self.acceleration = -0.1  # 예시 값
+        if self.speedy > 0:
+            self.speedy -= 0.1  # 아래로 감속
+        elif self.speedy < 0:
+            self.speedy += 0.1  # 위로 감속
+
+        # 속도가 0에 도달하면 정지
+        if abs(self.speedx) < 1:
+            self.speedx = 0
+        if abs(self.speedy) < 1:
+            self.speedy = 2
+
+        # 위치 업데이트
+        self.rect.x += self.speedx
+        self.rect.y -= self.speedy
 
 
     def draw(self, screen):
@@ -422,9 +547,9 @@ class objectCar(pygame.sprite.Sprite):
         screen.blit(self.image, self.rect)
 
 
-start_button = Button(WIDTH/6, HEIGHT/5*4, 120, 50)  # 시작 버튼
-score_button=Button(WIDTH//2-60, HEIGHT/5*4, 120, 50)    # 점수 버튼
-end_button = Button(WIDTH/6*4+25, HEIGHT/5*4, 120, 50)  # 종료 버튼
+start_button = Button(WIDTH/6, HEIGHT/5*4, 150, 50,12)  # 시작 버튼
+score_button=Button(WIDTH//2-60, HEIGHT/5*4, 150, 50,12)    # 점수 버튼
+end_button = Button(WIDTH/6*4+25, HEIGHT/5*4, 150, 50,12)  # 종료 버튼
 
 all_sprites = pygame.sprite.Group()
 objcars = pygame.sprite.Group()
