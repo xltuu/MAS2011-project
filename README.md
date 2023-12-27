@@ -45,3 +45,14 @@ Shield score increases by 30 points.
 
 Shield score increases by 10 points.
 
+#### code👾
+
+* completed code
+
+    20221523_game.py
+
+* score text file
+
+    score.txt
+    
+    Save player's scores so far in this text file. It then finds the highest score and displays it when the score button is pressed.
